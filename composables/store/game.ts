@@ -1,6 +1,5 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { useRouter } from '#app'
 
 // Mock data for questions. In a real app, this would come from an API.
 const initialQuestions = [
@@ -29,7 +28,7 @@ export const useGameStore = defineStore('gameStore', () => {
   // GETTERS
   const totalQuestions = computed(() => questions.value.length)
   const currentQuestion = computed(() => questions.value[currentQuestionIndex.value])
-  const progress = computed(() => (currentQuestionIndex.value / questions.value.length) * 100)
+  const progress = computed(() => ((currentQuestionIndex.value + 1) / questions.value.length) * 100)
   const score = computed(() => ({
     correct: correctAnswers.value,
     incorrect: incorrectAnswers.value,
@@ -62,6 +61,8 @@ export const useGameStore = defineStore('gameStore', () => {
 
     userAnswer.value = answer
     const question = currentQuestion.value
+    if (!question) return
+
     if (question.type === answer) {
       correctAnswers.value++
       lastAnswerCorrect.value = true
@@ -74,8 +75,7 @@ export const useGameStore = defineStore('gameStore', () => {
   function nextQuestion() {
     if (isLastQuestion.value) {
       gameFinished.value = true
-      const router = useRouter()
-      router.push('/results')
+      // Yönlendirme mantığı buradan kaldırıldı
     } else {
       currentQuestionIndex.value++
       lastAnswerCorrect.value = null
