@@ -42,10 +42,17 @@
 <script setup>
 import { useGameStore } from '~/composables/store/game';
 import { useRouter } from 'vue-router';
-import { onMounted } from 'vue';
+import { onMounted, watch } from 'vue';
 
 const gameStore = useGameStore();
 const router = useRouter();
+
+// Oyunun bitiş durumunu izle
+watch(() => gameStore.gameFinished, (isFinished) => {
+    if (isFinished) {
+        router.push('/results');
+    }
+});
 
 onMounted(() => {
     // If the game is finished, redirect to results
