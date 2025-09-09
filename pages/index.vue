@@ -7,18 +7,31 @@
       <h1>AivsHuman</h1>
       <p class="subtitle">AI mı İnsan mı? Zekânı test et!</p>
 
-      <div class="mode-select">
-        <div class="mode-header">
-          <span class="mode-icon">🖼️</span>
-          <h2>Görsel Mod</h2>
+      <div class="mode-selection-container">
+        <div class="mode-card" @click="selectMode('classic')">
+          <div class="mode-header">
+            <span class="mode-icon">🖼️</span>
+            <h2>Görsel Mod</h2>
+          </div>
+          <p class="mode-description">
+            <span class="status-dot classic"></span>
+            10 soruda başarı oranını test et
+          </p>
         </div>
-        <p class="mode-description">
-          <span class="status-dot"></span>
-          Görsellerin AI ya da insan yapımı olduğunu tahmin et
-        </p>
+
+        <div class="mode-card" @click="selectMode('time')">
+          <div class="mode-header">
+            <span class="mode-icon">⏱️</span>
+            <h2>Zamana Karşı</h2>
+          </div>
+          <p class="mode-description">
+            <span class="status-dot time"></span>
+            30 saniyede en yüksek puanı topla
+          </p>
+        </div>
       </div>
 
-      <button class="start-button" @click="startGame">
+      <button class="start-button" @click="startGame" :disabled="!selectedMode">
         🚀 Oyuna Başla
       </button>
 
@@ -28,15 +41,23 @@
 </template>
 
 <script setup>
+import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useGameStore } from '~/composables/store/game'
 
 const router = useRouter()
 const gameStore = useGameStore()
+const selectedMode = ref(null)
+
+const selectMode = (mode) => {
+  selectedMode.value = mode
+}
 
 const startGame = () => {
-  gameStore.startGame()
-  router.push('/play')
+  if (selectedMode.value) {
+    gameStore.startGame(selectedMode.value)
+    router.push('/play')
+  }
 }
 </script>
 
@@ -110,12 +131,29 @@ h1 {
   color: #e0e0e0;
 }
 
-.mode-select {
+.mode-selection-container {
+  margin-bottom: 30px;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.mode-card {
   background: rgba(0, 0, 0, 0.15);
   border-radius: 15px;
   padding: 20px;
-  margin-bottom: 30px;
   text-align: left;
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: border-color 0.3s ease, background-color 0.3s ease;
+}
+
+.mode-card:hover {
+  background: rgba(0, 0, 0, 0.25);
+}
+
+.mode-card.selected {
+  border-color: #2979ff;
 }
 
 .mode-header {
@@ -146,9 +184,16 @@ h1 {
 .status-dot {
   width: 8px;
   height: 8px;
-  background-color: #2ecc71;
   border-radius: 50%;
   margin-right: 10px;
+}
+
+.status-dot.classic {
+  background-color: #2ecc71;
+}
+
+.status-dot.time {
+  background-color: #f39c12;
 }
 
 .start-button {
@@ -169,6 +214,11 @@ h1 {
 .start-button:hover {
   background-color: #0056b3;
   transform: translateY(-2px);
+}
+
+.start-button:disabled {
+  background-color: #5a5a5a;
+  cursor: not-allowed;
 }
 
 .footer-text {

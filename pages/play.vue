@@ -1,16 +1,33 @@
 <template>
     <div v-if="gameStore.currentQuestion" class="game-container">
         <div class="game-card">
-            <div class="progress-bar-container">
+            <!-- Classic Mode: Progress Bar -->
+            <div v-if="gameStore.gameMode === 'classic'" class="progress-bar-container">
                 <div class="progress-bar" :style="{ width: gameStore.progress + '%' }"></div>
             </div>
 
+            <!-- Time Attack Mode: Timer Bar -->
+            <div v-if="gameStore.gameMode === 'time'" class="progress-bar-container">
+                <div class="timer-bar" :style="{ width: (gameStore.timeRemaining / 30) * 100 + '%' }"></div>
+            </div>
+
             <div class="game-header">
-                <p>Soru {{ gameStore.currentQuestionIndex + 1 }} / {{ gameStore.totalQuestions }}</p>
-                <div class="score">
-                    <span>✔️ {{ gameStore.score.correct }}</span>
-                    <span>❌ {{ gameStore.score.incorrect }}</span>
-                </div>
+                <!-- Classic Mode Header -->
+                <template v-if="gameStore.gameMode === 'classic'">
+                    <p>Soru {{ gameStore.currentQuestionIndex + 1 }} / 10</p>
+                    <div class="score">
+                        <span>✔️ {{ gameStore.correctAnswers }}</span>
+                        <span>❌ {{ gameStore.incorrectAnswers }}</span>
+                    </div>
+                </template>
+
+                <!-- Time Attack Mode Header -->
+                <template v-if="gameStore.gameMode === 'time'">
+                    <p>⏱️ {{ gameStore.timeRemaining }}s</p>
+                    <div class="score">
+                        <span>🏆 {{ gameStore.timeAttackScore }} Puan</span>
+                    </div>
+                </template>
             </div>
 
             <div class="question-content">
@@ -26,12 +43,13 @@
             <div v-if="gameStore.userAnswer" class="feedback-container">
                 <div v-if="gameStore.lastAnswerCorrect" class="feedback correct">
                     <p>🎉 Doğru!</p>
+                    <p v-if="gameStore.gameMode === 'time'" class="points-earned">+{{ lastPoints }} puan</p>
                 </div>
                 <div v-else class="feedback incorrect">
                     <p>😞 Yanlış! Doğru cevap: {{ gameStore.currentQuestion.type === 'human' ? 'İnsan Yapımı' :
                         'AI Yapımı' }}</p>
                 </div>
-                <button @click="gameStore.nextQuestion()" class="next-button">
+                <button @click="handleNextQuestion" class="next-button">
                     {{ gameStore.isLastQuestion ? 'Sonuçları Gör' : 'Sonraki Soru' }} →
                 </button>
             </div>
@@ -42,32 +60,44 @@
 <script setup>
 import { useGameStore } from '~/composables/store/game';
 import { useRouter } from 'vue-router';
-import { onMounted, watch } from 'vue';
+import { onMounted, watch, ref } from 'vue';
 
 const gameStore = useGameStore();
 const router = useRouter();
+const lastPoints = ref(0);
+const previousScore = ref(0);
 
-// Oyunun bitiş durumunu izle
+// Watch for the game to finish and redirect
 watch(() => gameStore.gameFinished, (isFinished) => {
     if (isFinished) {
         router.push('/results');
     }
 });
 
+// Watch for score changes to show points earned
+watch(() => gameStore.timeAttackScore, (newScore) => {
+    if (gameStore.gameMode === 'time' && newScore > previousScore.value) {
+        lastPoints.value = newScore - previousScore.value;
+        previousScore.value = newScore;
+    }
+});
+
+const handleNextQuestion = () => {
+    gameStore.nextQuestion();
+    previousScore.value = gameStore.timeAttackScore; // Reset for next question
+}
+
 onMounted(() => {
-    // If the game is finished, redirect to results
-    if (gameStore.gameFinished) {
-        router.push('/results');
+    // If no mode is selected (e.g., direct navigation or refresh), go home.
+    if (!gameStore.gameMode) {
+        router.push('/');
         return;
     }
-
-    // If the game hasn't been started (e.g., page refresh on /play),
-    // reset and start from the beginning.
-    if (gameStore.userAnswer !== null || gameStore.currentQuestionIndex > 0) {
-        // This condition handles the case where a user refreshes the page mid-game.
-        // We reset to avoid inconsistent state.
-        gameStore.startGame();
+    // If the game is already finished, go to results.
+    if (gameStore.gameFinished) {
+        router.push('/results');
     }
+    previousScore.value = gameStore.timeAttackScore;
 });
 </script>
 
@@ -112,6 +142,13 @@ onMounted(() => {
     background-color: #2ecc71;
     border-radius: 4px;
     transition: width 0.5s ease;
+}
+
+.timer-bar {
+    height: 100%;
+    background-color: #f39c12;
+    border-radius: 4px;
+    transition: width 0.5s linear;
 }
 
 .game-header {
@@ -193,11 +230,18 @@ onMounted(() => {
 .feedback.correct {
     background-color: rgba(46, 204, 113, 0.8);
     color: white;
+    padding: 10px;
 }
 
 .feedback.incorrect {
     background-color: rgba(231, 76, 60, 0.8);
     color: white;
+}
+
+.points-earned {
+    font-size: 0.9rem;
+    font-weight: 400;
+    margin-top: 5px;
 }
 
 .next-button {

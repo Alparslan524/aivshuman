@@ -4,7 +4,8 @@
             <h1 class="title">Oyun Bitti!</h1>
             <p class="subtitle">İşte sonuçların:</p>
 
-            <div class="score-summary">
+            <!-- Classic Mode Results -->
+            <div v-if="gameStore.gameMode === 'classic'" class="score-summary">
                 <div class="success-rate">
                     <p>Başarı Oranı</p>
                     <span>%{{ gameStore.successRate }}</span>
@@ -21,6 +22,24 @@
                     <div class="detail-item">
                         <p>❌ Yanlış</p>
                         <span>{{ gameStore.score.incorrect }}</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Time Attack Mode Results -->
+            <div v-if="gameStore.gameMode === 'time'" class="score-summary">
+                <div class="success-rate">
+                    <p>Toplam Puan</p>
+                    <span class="total-score">🏆 {{ gameStore.timeAttackScore }}</span>
+                </div>
+                <div class="score-details">
+                    <div class="detail-item">
+                        <p>✔️ Doğru</p>
+                        <span>{{ gameStore.correctAnswers }}</span>
+                    </div>
+                    <div class="detail-item">
+                        <p>❌ Yanlış</p>
+                        <span>{{ gameStore.incorrectAnswers }}</span>
                     </div>
                 </div>
             </div>
@@ -54,8 +73,13 @@ const router = useRouter();
 const copied = ref(false);
 
 const playAgain = () => {
-    gameStore.startGame();
-    router.push('/play');
+    // Restart the game in the same mode
+    if (gameStore.gameMode) {
+        gameStore.startGame(gameStore.gameMode);
+        router.push('/play');
+    } else {
+        router.push('/'); // Fallback
+    }
 };
 
 const goHome = () => {
@@ -63,7 +87,12 @@ const goHome = () => {
     router.push('/');
 };
 
-const shareText = computed(() => `AivsHuman oyununda ${gameStore.totalQuestions} soruda ${gameStore.score.correct} doğru cevap vererek %${gameStore.successRate} başarı oranı yakaladım! Sen de dene!`);
+const shareText = computed(() => {
+    if (gameStore.gameMode === 'time') {
+        return `AivsHuman oyununda zamana karşı modda ${gameStore.timeAttackScore} puan topladım! Sen de dene!`;
+    }
+    return `AivsHuman oyununda 10 sorudan ${gameStore.correctAnswers} doğru cevap vererek %${gameStore.successRate} başarı oranı yakaladım! Sen de dene!`;
+});
 const gameUrl = 'https://aivshuman.com'; // Replace with your actual URL
 
 const copyResults = () => {
@@ -89,8 +118,8 @@ const share = (platform) => {
 };
 
 onMounted(() => {
-    // If the game is not finished, redirect to home
-    if (!gameStore.gameFinished) {
+    // If no mode is selected or game is not finished, redirect to home
+    if (!gameStore.gameMode || !gameStore.gameFinished) {
         router.push('/')
     }
 })
@@ -156,6 +185,10 @@ onMounted(() => {
     font-size: 3.5rem;
     font-weight: 700;
     color: #2ecc71;
+}
+
+.success-rate span.total-score {
+    color: #f39c12;
 }
 
 .score-details {

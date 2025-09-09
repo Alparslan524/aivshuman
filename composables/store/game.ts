@@ -16,8 +16,8 @@ const initialQuestions = [
 ]
 
 export const useGameStore = defineStore('gameStore', () => {
-  // STATE
-  const questions = ref(initialQuestions)
+  // --- STATE ---
+  const questions = ref([...initialQuestions].sort(() => Math.random() - 0.5))
   const currentQuestionIndex = ref(0)
   const correctAnswers = ref(0)
   const incorrectAnswers = ref(0)
@@ -25,11 +25,18 @@ export const useGameStore = defineStore('gameStore', () => {
   const lastAnswerCorrect = ref<boolean | null>(null)
   const userAnswer = ref<'ai' | 'human' | null>(null)
 
-  // GETTERS
+  // New state for game modes
+  const gameMode = ref<'classic' | 'time' | null>(null)
+  const timeAttackScore = ref(0) // Renamed from score
+  const timeRemaining = ref(30)
+  const questionStartTime = ref(0)
+  let timerInterval: ReturnType<typeof setInterval> | null = null
+
+  // --- GETTERS ---
   const totalQuestions = computed(() => questions.value.length)
   const currentQuestion = computed(() => questions.value[currentQuestionIndex.value])
-  const progress = computed(() => ((currentQuestionIndex.value + 1) / questions.value.length) * 100)
-  const score = computed(() => ({
+  const progress = computed(() => ((currentQuestionIndex.value) / 10) * 100) // Classic mode has 10 questions
+  const score = computed(() => ({ // Re-introducing score object for classic mode consistency
     correct: correctAnswers.value,
     incorrect: incorrectAnswers.value,
   }))
@@ -38,22 +45,44 @@ export const useGameStore = defineStore('gameStore', () => {
     if (totalAnswered === 0) return 0
     return Math.round((correctAnswers.value / totalAnswered) * 100)
   })
-  const isLastQuestion = computed(() => currentQuestionIndex.value === questions.value.length - 1)
+  const isLastQuestion = computed(() => gameMode.value === 'classic' && currentQuestionIndex.value === 9)
 
-  // ACTIONS
+  // --- ACTIONS ---
+  function stopTimer() {
+    if (timerInterval) {
+      clearInterval(timerInterval)
+      timerInterval = null
+    }
+  }
+
   function resetGame() {
+    stopTimer()
+    // Shuffle questions for a new game
+    questions.value.sort(() => Math.random() - 0.5)
     currentQuestionIndex.value = 0
     correctAnswers.value = 0
     incorrectAnswers.value = 0
     gameFinished.value = false
     lastAnswerCorrect.value = null
     userAnswer.value = null
-    // Optionally shuffle questions
-    // questions.value.sort(() => Math.random() - 0.5)
+    gameMode.value = null
+    timeAttackScore.value = 0 // Renamed from score
+    timeRemaining.value = 30
   }
 
-  function startGame() {
+  function startGame(mode: 'classic' | 'time') {
     resetGame()
+    gameMode.value = mode
+    if (mode === 'time') {
+      questionStartTime.value = Date.now()
+      timerInterval = setInterval(() => {
+        timeRemaining.value--
+        if (timeRemaining.value <= 0) {
+          stopTimer()
+          gameFinished.value = true
+        }
+      }, 1000)
+    }
   }
 
   function answerQuestion(answer: 'ai' | 'human') {
@@ -61,25 +90,39 @@ export const useGameStore = defineStore('gameStore', () => {
 
     userAnswer.value = answer
     const question = currentQuestion.value
-    if (!question) return
+    if (!question) return // Should not happen, but as a safeguard
 
-    if (question.type === answer) {
-      correctAnswers.value++
+    const isCorrect = question.type === answer
+
+    if (isCorrect) {
       lastAnswerCorrect.value = true
+      correctAnswers.value++
+      if (gameMode.value === 'time') {
+        const timeTaken = (Date.now() - questionStartTime.value) / 1000 // in seconds
+        const points = Math.max(10, 100 - Math.floor(timeTaken * 5)) // Faster answers get more points
+        timeAttackScore.value += points // Use the new state variable
+      }
     } else {
-      incorrectAnswers.value++
       lastAnswerCorrect.value = false
+      incorrectAnswers.value++
     }
   }
 
   function nextQuestion() {
-    if (isLastQuestion.value) {
+    if (gameFinished.value) return
+
+    if (gameMode.value === 'classic' && isLastQuestion.value) {
       gameFinished.value = true
-      // Yönlendirme mantığı buradan kaldırıldı
-    } else {
-      currentQuestionIndex.value++
-      lastAnswerCorrect.value = null
-      userAnswer.value = null
+      return
+    }
+
+    // Move to the next question, looping if necessary for time mode
+    currentQuestionIndex.value = (currentQuestionIndex.value + 1) % questions.value.length
+    lastAnswerCorrect.value = null
+    userAnswer.value = null
+
+    if (gameMode.value === 'time') {
+      questionStartTime.value = Date.now()
     }
   }
 
@@ -92,11 +135,14 @@ export const useGameStore = defineStore('gameStore', () => {
     gameFinished,
     lastAnswerCorrect,
     userAnswer,
+    gameMode,
+    timeAttackScore, // Renamed
+    timeRemaining,
     // Getters
     totalQuestions,
     currentQuestion,
     progress,
-    score,
+    score, // Keep for classic mode compatibility
     successRate,
     isLastQuestion,
     // Actions
